@@ -513,3 +513,37 @@ html[data-theme="dark"],
   border-radius: 8px;
   scroll-margin-top: 150px; /* 스크롤 시 헤더에 가려지지 않게 여백 확보 */
 }
+
+.chzzk-profile-uid > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--Content-Neutral-Cool-Strong);
+  margin-bottom: 6px;
+}
+.chzzk-profile-uid > div > span:first-child {
+  font-weight: bold;
+  user-select: none;
+}
+.chzzk-profile-uid > div > span:last-child {
+  cursor: pointer;
+}
+.chzzk-uid-copy-target {
+  position: relative;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in;
+}
+.chzzk-uid-copy-target:hover {
+  background-color: var(--Surface-Interaction-Lighten-Hovered);
+}
+.chzzk-uid-copy-target:hover .chzzk-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+.chzzk-uid-copy-target .chzzk-tooltip-text {
+  min-width: 80px;
+  bottom: 140%;
+}

@@ -13,6 +13,7 @@ const CHZZK_API_BASE = "https://comm-api.game.naver.com/nng_main/v1";
 let domUpdateTimer = null;
 let currentMenuTargetHash = null; // '더보기' 메뉴가 열린 대상 유저의 Hash 저장용
 let pendingTargetId = null; // 포커싱해야 할 댓글 ID
+let lastProfileData = null; // 마지막으로 클릭한 유저의 프로필 데이터
 
 // 토스트 메시지 표시 함수
 function showToast(message, type = "info", duration = 3000) {
@@ -1661,6 +1662,12 @@ window.addEventListener("message", (event) => {
     return;
   }
 
+  // 프로필 데이터 수신
+  if (event.data.type === "CHZZK_PROFILE_DATA") {
+    lastProfileData = event.data.payload;
+    return;
+  }
+
   if (event.data.type !== "CHZZK_XHR_DATA") return;
   const data = event.data.payload;
   if (!data || !data.content) return;
@@ -1671,6 +1678,46 @@ window.addEventListener("message", (event) => {
 
   scheduleUpdateDom();
 });
+
+// 프로필 팝업에 UID 주입 함수
+function injectUidToProfilePopup(popupNode) {
+  if (!lastProfileData) return;
+
+  // 타겟 위치 찾기 (.live_chatting_popup_profile_history__yFNVd)
+  const historyDiv = popupNode.querySelector(
+    'div[class*="live_chatting_popup_profile_history"]'
+  );
+
+  if (historyDiv && !historyDiv.querySelector(".chzzk-profile-uid")) {
+    const uid = lastProfileData.userIdHash;
+
+    // UID 표시 요소 생성
+    const uidRow = document.createElement("div");
+    uidRow.className = "chzzk-profile-uid";
+
+    uidRow.innerHTML = `
+      <div>
+        <span>UID</span>
+        <span class="chzzk-uid-copy-target">${uid}
+          <span class="chzzk-tooltip-text">클릭하여 UID 복사</span>
+        </span>
+      </div>
+    `;
+
+    // 복사 기능
+    uidRow.querySelector(".chzzk-uid-copy-target").onclick = () => copyUid(uid);
+
+    // 첫 번째 자식으로 추가
+    historyDiv.prepend(uidRow);
+  }
+}
+
+// 헬퍼 함수: UID 복사
+function copyUid(uid) {
+  navigator.clipboard.writeText(uid).then(() => {
+    showToast("UID가 복사되었습니다.", "success");
+  });
+}
 
 // --- Observer 실행 ---
 function startObserver() {
@@ -1686,13 +1733,23 @@ function startObserver() {
     for (const mutation of mutations) {
       if (mutation.addedNodes.length > 0) {
         mutation.addedNodes.forEach((node) => {
-          // 치지직 댓글 메뉴 레이어 클래스 확인 (comment_item_layer)
-          if (
-            node.nodeType === 1 &&
-            node.classList &&
-            node.classList.toString().includes("comment_item_layer")
-          ) {
-            injectNativeBlockButton(node);
+          // nodeType이 Element(1)인지, classList가 존재하는지 먼저 확인
+          if (node.nodeType === 1 && node.classList) {
+            const classString = node.classList.toString(); // 문자열로 변환
+
+            // A. 댓글 메뉴 감지. 치지직 댓글 메뉴 레이어 클래스 확인 (comment_item_layer)
+            if (classString.includes("comment_item_layer")) {
+              injectNativeBlockButton(node);
+            }
+
+            // B. 프로필 팝업 감지
+            // live_chatting_popup_profile_container 포함 여부 확인
+            if (classString.includes("live_chatting_popup_profile_container")) {
+              injectUidToProfilePopup(node);
+
+              // 만약 내용이 늦게 뜬다면 팝업 내부를 다시 감시해야 함
+              setTimeout(() => injectUidToProfilePopup(node), 100);
+            }
           }
         });
       }

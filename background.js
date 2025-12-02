@@ -22,6 +22,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       url: [
         "https://chzzk.naver.com/*/community/*",
         "https://chzzk.naver.com/video/*",
+        "https://chzzk.naver.com/live/*",
       ],
     });
 

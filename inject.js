@@ -35,7 +35,7 @@
     this.addEventListener("load", function () {
       const url = this._url ? this._url.toString() : "";
 
-      // 댓글 API 감지
+      // 1. 댓글 API 감지
       if (url.includes("/comments") && url.includes("nng_comment_api")) {
         try {
           const data = JSON.parse(this.responseText);
@@ -43,6 +43,22 @@
         } catch (e) {
           // JSON 파싱 실패는 조용히 무시
         }
+      }
+
+      // 2. 프로필 카드 API 감지
+      if (url.includes("/profile-card") && url.includes("chatType=STREAMING")) {
+        try {
+          const data = JSON.parse(this.responseText);
+          if (data.code === 200 && data.content) {
+            window.postMessage(
+              {
+                type: "CHZZK_PROFILE_DATA",
+                payload: data.content,
+              },
+              "*"
+            );
+          }
+        } catch (e) {}
       }
     });
     return originalSend.apply(this, arguments);
