@@ -547,3 +547,43 @@ html[data-theme="dark"],
   min-width: 80px;
   bottom: 140%;
 }
+
+/* 댓글 박스 자체를 숨기는 클래스 */
+.chzzk-hidden-comment {
+  display: none !important;
+}
+
+/* 차단 숨기기 스위치 스타일 */
+.chzzk-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #f5f5f5;
+  background-color: rgba(149, 165, 166, 0.75);
+  padding: 8px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  backdrop-filter: blur(1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  user-select: none;
+  margin-bottom: 5px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+/* 체크박스 아예 숨기기 */
+.chzzk-toggle-checkbox {
+  display: none;
+}
+/* 켜졌을 때(Checked) 스타일 */
+.chzzk-toggle-label.checked {
+  background-color: #e74c3c;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+}
+.chzzk-toggle-label:hover {
+  filter: brightness(1.2);
+}

@@ -7,6 +7,7 @@ const commentHashMap = new Map();
 const STORAGE_KEY = "CHZZK_REPLY_BLOCKED_USERS";
 const STORAGE_DETAILS_KEY = "CHZZK_BLOCKED_DETAILS";
 const STORAGE_IMAGES_KEY = "CHZZK_BLOCKED_IMAGES";
+const STORAGE_SETTINGS_KEY = "CHZZK_GRINDER_SETTINGS";
 
 const CHZZK_API_BASE = "https://comm-api.game.naver.com/nng_main/v1";
 
@@ -14,6 +15,11 @@ let domUpdateTimer = null;
 let currentMenuTargetHash = null; // '더보기' 메뉴가 열린 대상 유저의 Hash 저장용
 let pendingTargetId = null; // 포커싱해야 할 댓글 ID
 let lastProfileData = null; // 마지막으로 클릭한 유저의 프로필 데이터
+
+// 사용자 설정 기본값
+let userSettings = {
+  hideBlocked: false, // false: 블러 처리, true: 아예 숨김
+};
 
 // 토스트 메시지 표시 함수
 function showToast(message, type = "info", duration = 3000) {
@@ -68,6 +74,11 @@ function initBlockedUsers() {
       blockedUsersCache = result[STORAGE_KEY] || [];
       blockedDetailsCache = result[STORAGE_DETAILS_KEY] || {};
       blockedImagesCache = result[STORAGE_IMAGES_KEY] || {};
+
+      // 설정 로드
+      if (result[STORAGE_SETTINGS_KEY]) {
+        userSettings = result[STORAGE_SETTINGS_KEY];
+      }
 
       // 로드 완료 플래그 설정
       isDataLoaded = true;
@@ -131,6 +142,12 @@ function toggleBlockUser(hash, metaData = null) {
 
   // C. 우측 하단 버튼 UI 갱신
   updateExportButtonUI();
+}
+
+// 설정 저장 헬퍼
+function saveSettings() {
+  chrome.storage.local.set({ [STORAGE_SETTINGS_KEY]: userSettings });
+  scheduleUpdateDom(); // 설정 변경 즉시 화면 반영
 }
 
 // 데이터 및 UI 초기화 함수 (페이지 이동 시 호출)
@@ -1113,35 +1130,50 @@ function updateDom() {
       }
 
       if (contentEl) {
+        // [CASE A] 차단된 유저인 경우
         if (isBlocked) {
-          // 블러 처리가 필요한데 안 되어 있다면 적용
-          // [최적화] 이미 블러 처리된 상태라면 건드리지 않음
-          if (
-            !contentEl.classList.contains("chzzk-blur-content") &&
-            !contentEl.dataset.tempUnblur
-          ) {
-            contentEl.classList.add("chzzk-blur-content");
+          // 옵션 1: 아예 숨기기 (Hide)
+          if (userSettings.hideBlocked) {
+            // 숨김 클래스 추가 (박스 전체를 숨김)
+            if (!box.classList.contains("chzzk-hidden-comment")) {
+              box.classList.add("chzzk-hidden-comment");
+            }
+            // 블러 처리는 해제 (혹시 옵션 바꿨을 때 찌꺼기 방지)
+            contentEl.classList.remove("chzzk-blur-content");
+          }
+          // 옵션 2: 블러 처리 (Blur)
+          else {
+            // 숨김 클래스 제거 (보이게 함)
+            box.classList.remove("chzzk-hidden-comment");
+            // 블러 처리가 필요한데 안 되어 있다면 적용
+            // [최적화] 이미 블러 처리된 상태라면 건드리지 않음
+            if (
+              !contentEl.classList.contains("chzzk-blur-content") &&
+              !contentEl.dataset.tempUnblur
+            ) {
+              contentEl.classList.add("chzzk-blur-content");
 
-            // 1. 이미 형제 툴팁이 있는지 확인
-            let tooltip = contentEl.parentNode.querySelector(
-              ".chzzk-tooltip-text.for-blur"
-            );
+              // 1. 이미 형제 툴팁이 있는지 확인
+              let tooltip = contentEl.parentNode.querySelector(
+                ".chzzk-tooltip-text.for-blur"
+              );
 
-            // 2. 없으면 생성해서 contentEl 바로 뒤에 삽입
-            if (!tooltip) {
-              tooltip = document.createElement("span");
-              tooltip.className = "chzzk-tooltip-text for-blur";
-              tooltip.innerText = "차단된 댓글입니다. 클릭하여 잠시 확인";
+              // 2. 없으면 생성해서 contentEl 바로 뒤에 삽입
+              if (!tooltip) {
+                tooltip = document.createElement("span");
+                tooltip.className = "chzzk-tooltip-text for-blur";
+                tooltip.innerText = "차단된 댓글입니다. 클릭하여 잠시 확인";
 
-              tooltip.style.bottom = "100%";
-              tooltip.style.left = "50%";
+                tooltip.style.bottom = "100%";
+                tooltip.style.left = "50%";
 
-              contentEl.after(tooltip); // 자식(appendChild)이 아니라 형제(after)로 삽입
+                contentEl.after(tooltip); // 자식(appendChild)이 아니라 형제(after)로 삽입
+              }
             }
           }
 
           // 클릭 이벤트 (한 번만 등록)
-          if (!contentEl.dataset.clickEvent) {
+          if (!userSettings.hideBlocked && !contentEl.dataset.clickEvent) {
             contentEl.onclick = (e) => {
               if (contentEl.classList.contains("chzzk-blur-content")) {
                 e.preventDefault();
@@ -1172,7 +1204,12 @@ function updateDom() {
             };
             contentEl.dataset.clickEvent = "true";
           }
-        } else {
+        }
+        // [CASE B] 차단되지 않은 유저인 경우
+        else {
+          // 숨김 해제
+          box.classList.remove("chzzk-hidden-comment");
+
           // 차단 해제 상태라면 원상 복구
           // 차단 해제 상태인데, 아직 클래스가 남아있다면 제거
           if (contentEl.classList.contains("chzzk-blur-content")) {
@@ -1595,6 +1632,40 @@ function createExportButton() {
   if (!shouldShowExportButton()) {
     container.style.display = "none";
   }
+
+  // 차단 숨기기 토글 스위치
+  const toggleLabel = document.createElement("label");
+  toggleLabel.className = "chzzk-toggle-label";
+  toggleLabel.innerHTML = `
+    <input type="checkbox" class="chzzk-toggle-checkbox">
+    <span>🚫 차단 댓글 숨기기</span>
+  `;
+
+  const checkbox = toggleLabel.querySelector("input");
+
+  // 1. 초기 상태 설정
+  checkbox.checked = userSettings.hideBlocked;
+  if (userSettings.hideBlocked) {
+    toggleLabel.classList.add("checked"); // 켜져있으면 스타일 적용
+  }
+
+  // 2. 변경 이벤트
+  checkbox.onchange = (e) => {
+    userSettings.hideBlocked = e.target.checked;
+
+    // 스타일 토글 (클래스 추가/제거)
+    if (userSettings.hideBlocked) {
+      toggleLabel.classList.add("checked");
+      showToast("차단된 댓글을 화면에서 숨깁니다.", "info");
+    } else {
+      toggleLabel.classList.remove("checked");
+      showToast("차단된 댓글을 블러 처리합니다.", "info");
+    }
+
+    saveSettings(); // 저장 및 화면 갱신
+  };
+
+  container.appendChild(toggleLabel);
 
   // 1. CSV 저장 버튼
   const csvBtn = document.createElement("button");
