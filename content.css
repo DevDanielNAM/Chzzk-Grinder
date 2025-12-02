@@ -1,0 +1,515 @@
+/* CSS 색상 변수 정의 */
+:root {
+  /* 기본(라이트 모드) 색상 */
+  --btn-blocked-bg: #f500002e; /* 라이트 모드 배경색 */
+  --btn-blocked-text: #e02020;
+}
+
+/* 다크 모드 감지 */
+html[data-theme="dark"],
+@media (prefers-color-scheme: dark) {
+  :root {
+    --btn-blocked-bg: #711e1e; /* 다크 모드 배경색 */
+    --btn-blocked-text: #e02020;
+  }
+}
+
+/* 블러 처리된 콘텐츠 */
+.chzzk-blur-content {
+  filter: blur(6px);
+  user-select: none;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+.chzzk-blur-content:hover {
+  filter: blur(3px);
+}
+
+/* 버튼 컨테이너 */
+.chzzk-btn-group {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  vertical-align: middle;
+  gap: 2px;
+}
+
+/* 공통 버튼 스타일 */
+.chzzk-action-btn {
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  line-height: 1.2;
+  font-family: sans-serif;
+  transition: all 0.1s;
+  position: relative;
+  display: inline-flex;
+}
+
+/* 1) 복사 버튼, 캡처 버튼 (회색) */
+.chzzk-copy-btn,
+.chzzk-capture-btn {
+  background-color: var(--Surface-Neutral-Base, rgba(0, 0, 0, 0.05));
+  color: var(--Content-Neutral-Cool-Strong, #888);
+}
+.chzzk-copy-btn:hover,
+.chzzk-capture-btn:hover {
+  background-color: var(--Surface-Neutral-Strong, rgba(0, 0, 0, 0.1));
+  color: var(--Content-Neutral-Cool-Stronger, #555);
+}
+
+/* 2) 차단 버튼 (기본) */
+.chzzk-block-btn {
+  color: #53b28a;
+  background-color: var(--color-bg-chzzk-06);
+}
+.chzzk-block-btn:hover {
+  background-color: var(--btn-blocked-bg);
+  color: var(--btn-blocked-text);
+  font-weight: bold;
+}
+
+/* 2-1) 차단 활성화 상태 (붉은색) */
+.chzzk-block-btn.is-blocked {
+  background-color: var(--btn-blocked-bg);
+  color: var(--btn-blocked-text);
+  font-weight: bold;
+}
+
+/* 수집 버튼 (기본 회색) */
+.chzzk-collect-btn {
+  background-color: var(--Surface-Neutral-Base, rgba(0, 0, 0, 0.05));
+  color: var(--Content-Neutral-Cool-Strong, #888);
+}
+.chzzk-collect-btn:hover {
+  background-color: var(--Surface-Neutral-Strong, rgba(0, 0, 0, 0.1));
+  color: var(--Content-Neutral-Cool-Stronger, #555);
+}
+
+/* 수집 완료된 상태 (녹색) */
+.chzzk-collect-btn.is-captured {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+/* 커스텀 툴팁 */
+.chzzk-tooltip-text {
+  visibility: hidden;
+  width: max-content;
+  min-width: 60px;
+  max-width: 200px;
+  background-color: var(--Surface-Neutral-Base, #333);
+  color: var(--Content-Neutral-Cool-Stronger, #fff);
+  box-shadow: 0 2px 8px 0 var(--color-shadow-layer04-02, rgba(0, 0, 0, 0.2)),
+    0 0 2px 0 var(--color-shadow-layer04-01, rgba(0, 0, 0, 0.1));
+  text-align: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: normal;
+  line-height: 1.4;
+
+  /* 위치 설정 */
+  position: absolute;
+  z-index: 9999;
+  left: 50%;
+  bottom: 130%;
+  transform: translateX(-50%); /* 가로 중앙 정렬 */
+
+  /* 효과 */
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+/* 호버 시 표시 */
+.chzzk-action-btn:hover .chzzk-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+.chzzk-blur-content:hover + .chzzk-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* 캡처 완료된 버튼 스타일 */
+.chzzk-capture-btn.is-captured {
+  background-color: #e8f5e9; /* 연한 녹색 배경 */
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+/* 차단 목록 리스트 아이템 (텍스트 위주) */
+.chzzk-block-item {
+  background-color: var(--Surface-Neutral-Weaker);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(var(--color-border-01-rgb), 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in;
+}
+.chzzk-block-item:hover {
+  background-color: var(--Surface-Neutral-Weakest);
+}
+.chzzk-block-item:hover .chzzk-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+.chzzk-block-item .chzzk-tooltip-text {
+  bottom: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  z-index: 10;
+  width: auto;
+  white-space: nowrap;
+}
+.chzzk-block-info {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+}
+.chzzk-block-info .meta {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.chzzk-block-info .content {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+.chzzk-unblock-btn {
+  padding: 6px 10px;
+  background-color: var(--btn-blocked-bg);
+  color: var(--btn-blocked-text);
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease-in;
+}
+.chzzk-unblock-btn:hover {
+  color: rgb(83, 178, 138);
+  background-color: var(--color-bg-chzzk-06);
+}
+.chzzk-modal-footer .chzzk-csv-btn {
+  background-color: #2ecc71bf;
+  transition: background-color 0.2s ease-in;
+}
+.chzzk-modal-footer .chzzk-csv-btn:hover {
+  background-color: #2ecc71;
+}
+
+/* PDF 생성 모달 스타일 */
+.chzzk-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.chzzk-modal-content {
+  background-color: var(--Surface-Neutral-Weaker);
+  color: var(--Content-Neutral-Cool-Stronger);
+  width: 600px;
+  max-height: 80vh;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: sans-serif;
+}
+.chzzk-modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(var(--color-border-01-rgb), 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chzzk-sort-select {
+  padding: 4px 8px;
+  border: 1px solid rgba(var(--color-border-01-rgb), 0.06);
+  border-radius: 4px;
+  font-size: 12px;
+  background-color: var(--Surface-Neutral-Weaker);
+  color: var(--Content-Neutral-Cool-Stronger);
+  cursor: pointer;
+}
+.chzzk-sort-select:focus {
+  outline: none;
+  border-color: 1px solid rgba(var(--color-border-01-rgb), 0.06);
+}
+.chzzk-modal-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+.chzzk-modal-close {
+  cursor: pointer;
+  font-size: 20px;
+  color: var(--Content-Neutral-Cool-Stronger);
+}
+.chzzk-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: var(--Surface-Neutral-Weak);
+}
+/* 상단 컨트롤 바 (전체선택 + 전체삭제) */
+.chzzk-modal-controls {
+  display: flex;
+  justify-content: space-between; /* 양끝 정렬 */
+  align-items: center;
+  padding: 0 5px 10px 5px;
+  border-bottom: 1px solid #eee; /* 구분선 추가 */
+  margin-bottom: 10px;
+}
+
+/* 전체 삭제 버튼 */
+.chzzk-delete-all-text-btn {
+  background: none;
+  border: none;
+  color: #e74c3c; /* 빨간색 */
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.chzzk-delete-all-text-btn:hover {
+  background-color: rgba(231, 76, 60, 0.1);
+}
+.chzzk-capture-item {
+  background-color: var(--Surface-Neutral-Weaker);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(var(--color-border-01-rgb), 0.06);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.chzzk-capture-item:hover {
+  background-color: var(--Surface-Neutral-Weakest);
+}
+/* 모달 내 삭제 버튼 스타일 */
+.chzzk-item-delete-btn {
+  margin-left: auto;
+  border: none;
+  background: none;
+  font-size: 8px;
+  cursor: pointer;
+  color: #adb5bd;
+  padding: 5px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.chzzk-item-delete-btn:hover {
+  color: #e74c3c;
+  background-color: rgba(231, 76, 60, 0.1);
+}
+.chzzk-capture-thumb {
+  width: 80px;
+  height: 60px;
+  object-fit: contain;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fafafa;
+}
+.chzzk-capture-info {
+  flex: 1;
+  font-size: 12px;
+}
+.chzzk-capture-info div {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+.chzzk-capture-info strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.chzzk-capture-info span {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+}
+.chzzk-modal-footer {
+  padding: 15px;
+  border-top: 1px solid rgba(var(--color-border-01-rgb), 0.06);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.chzzk-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+}
+.chzzk-btn-primary {
+  background: #e74d3cb3;
+  color: white;
+  transition: background 0.2s ease-in;
+}
+.chzzk-btn-secondary {
+  background: #95a5a6b3;
+  color: white;
+  transition: background 0.2s ease-in;
+}
+.chzzk-btn-primary:hover {
+  background: #e74d3c;
+  color: white;
+}
+.chzzk-btn-secondary:hover {
+  background: #95a5a6;
+  color: white;
+}
+
+#chzzk-export-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 99999;
+  display: flex;
+  gap: 5px;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.chzzk-export-btn {
+  padding: 8px 12px;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(1px);
+}
+#chzzk-csv-btn {
+  background-color: #2ecc71bf;
+  transition: background-color 0.2s ease-in;
+}
+#chzzk-pdf-btn {
+  background-color: #e74c3cbf;
+  transition: background-color 0.2s ease-in;
+}
+#chzzk-clear-btn {
+  background-color: #95a5a6bf;
+  transition: background-color 0.2s ease-in;
+}
+#chzzk-csv-btn:hover {
+  background-color: #2ecc71;
+}
+#chzzk-pdf-btn:hover {
+  background-color: #e74c3c;
+}
+#chzzk-clear-btn:hover {
+  background-color: #95a5a6;
+}
+
+/* 토스트 알림 스타일 */
+.chzzk-toast-container {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.chzzk-toast {
+  min-width: 250px;
+  max-width: 400px;
+  background-color: var(--Surface-Neutral-Base, rgba(0, 0, 0, 0.85));
+  color: var(--Content-Neutral-Cool-Stronger, white);
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+  font-family: "Pretendard", "Malgun Gothic", sans-serif;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chzzk-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 아이콘 스타일 */
+.chzzk-toast-icon {
+  font-size: 18px;
+}
+
+/* 타입별 색상 포인트 */
+.chzzk-toast.success {
+  border-left: 4px solid #2ecc71;
+}
+.chzzk-toast.error {
+  border-left: 4px solid #e74c3c;
+}
+.chzzk-toast.info {
+  border-left: 4px solid #3498db;
+}
+
+/* 타겟 댓글 강조 효과 (2초간 노란색 깜빡임) */
+@keyframes chzzk-target-blink {
+  0% {
+    background-color: rgba(255, 235, 59, 0);
+    box-shadow: 0 0 0 0 rgba(255, 235, 59, 0);
+  }
+  50% {
+    background-color: rgba(255, 235, 59, 0.3);
+    box-shadow: 0 0 0 4px rgba(255, 235, 59, 0.3);
+  }
+  100% {
+    background-color: rgba(255, 235, 59, 0);
+    box-shadow: 0 0 0 0 rgba(255, 235, 59, 0);
+  }
+}
+
+.chzzk-target-highlight {
+  animation: chzzk-target-blink 2s ease-in-out 3; /* 3번 깜빡임 */
+  border-radius: 8px;
+  scroll-margin-top: 150px; /* 스크롤 시 헤더에 가려지지 않게 여백 확보 */
+}

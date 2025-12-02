@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "치즈 그라인더 - 치지직 다시보기/커뮤니티 악성 댓글 차단 도우미",
+  "version": "1.0.0",
+  "description": "악성 댓글은 갈아버리세요! UID 확인부터 증거 수집(PDF)까지, 치지직을 더 깨끗하게 즐기는 방법",
+  "permissions": ["scripting", "storage", "downloads", "unlimitedStorage"],
+  "host_permissions": [
+    "https://chzzk.naver.com/*",
+    "https://comm-api.game.naver.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://chzzk.naver.com/*"],
+      "js": ["jspdf.js", "html-to-image.js", "inject.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  }
+}
