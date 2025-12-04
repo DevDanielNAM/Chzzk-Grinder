@@ -33,6 +33,24 @@ html[data-theme="dark"],
   vertical-align: middle;
   gap: 2px;
 }
+/* 클립(Clip) 페이지 전용 스타일 */
+.chzzk-btn-group.chzzk-clip-mode {
+  padding: 10px 0px 5px 46px;
+  margin: 0;
+  font-weight: 600;
+}
+.chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured) {
+  padding: 10px 0px 5px 27px;
+}
+[class*="comment_item_is_replied"] .chzzk-btn-group.chzzk-clip-mode {
+  padding: 10px 0px 5px 13px;
+  margin: 0;
+}
+[class*="comment_item_is_replied"]
+  .chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured) {
+  padding: 10px 0px 5px 0px;
+  margin-left: -40px;
+}
 
 /* 공통 버튼 스타일 */
 .chzzk-action-btn {
@@ -260,14 +278,25 @@ html[data-theme="dark"],
   outline: none;
   border-color: 1px solid rgba(var(--color-border-01-rgb), 0.06);
 }
+.chzzk-modal-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .chzzk-modal-title {
   font-weight: bold;
   font-size: 16px;
 }
 .chzzk-modal-close {
   cursor: pointer;
-  font-size: 20px;
-  color: var(--Content-Neutral-Cool-Stronger);
+  color: var(--color-content-04);
+}
+.chzzk-modal-close:hover {
+  color: var(--color-content-02);
+}
+.chzzk-modal-close:hover svg {
+  background-color: var(--color-bg-overlay-03);
+  border-radius: 6px;
 }
 .chzzk-modal-body {
   flex: 1;
@@ -404,6 +433,18 @@ html[data-theme="dark"],
   flex-direction: column;
   align-items: flex-end;
 }
+/* video에서 플레이어가 화면에 보일 때 export 버튼 숨김 */
+#chzzk-export-container.chzzk-export-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+}
+/* Clip 페이지일 때 왼쪽 하단으로 이동 */
+#chzzk-export-container.is-clip-mode {
+  right: auto;
+  left: 20px;
+  align-items: flex-start;
+}
 .chzzk-export-btn {
   padding: 8px 12px;
   color: white;
@@ -460,7 +501,7 @@ html[data-theme="dark"],
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   font-size: 14px;
-  font-family: "Pretendard", "Malgun Gothic", sans-serif;
+  font-family: inherit;
   text-align: center;
   opacity: 0;
   transform: translateY(20px);

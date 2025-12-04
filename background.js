@@ -11,6 +11,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       saveAs: true, // 장 위치 묻는 창 띄우기 (True)
     });
   }
+
+  // 2. 클립 메타데이터 중계 요청을 받으면 실행
+  if (request.type === "RELAY_CLIP_METADATA") {
+    // 메시지를 보낸 탭(Tab)의 모든 프레임에게 데이터를 다시 쏴줌
+    // (Top frame의 content.js가 이걸 받아서 처리)
+    if (sender.tab && sender.tab.id) {
+      chrome.tabs.sendMessage(sender.tab.id, {
+        type: "BROADCAST_CLIP_METADATA",
+        payload: request.payload,
+      });
+    }
+  }
 });
 
 // 2. 설치 및 업데이트 감지 리스너
@@ -23,6 +35,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
         "https://chzzk.naver.com/*/community/*",
         "https://chzzk.naver.com/video/*",
         "https://chzzk.naver.com/live/*",
+        "https://chzzk.naver.com/clips/*",
       ],
     });
 

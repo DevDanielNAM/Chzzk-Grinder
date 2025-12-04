@@ -63,4 +63,56 @@
     });
     return originalSend.apply(this, arguments);
   };
+
+  // 3. 클립 메타데이터 API 감지
+  const originalFetch = window.fetch;
+
+  window.fetch = async function (...args) {
+    // 원본 요청 수행
+    const response = await originalFetch(...args);
+
+    // 응답 복제 전에 URL부터 확인
+    if (
+      response.url &&
+      response.url.includes("/shortformhub") &&
+      response.url.includes("/card") &&
+      response.url.includes("seedType=SPECIFIC")
+    ) {
+      // 타겟 API인 경우에만 복제(clone) 수행
+      // clone()을 해야 원본 사이트의 동작(body 읽기)을 방해하지 않고 읽을 수 있음
+      try {
+        const clone = response.clone();
+        clone
+          .json()
+          .then((data) => {
+            try {
+              if (data && data.card) {
+                const payload = {
+                  streamerName:
+                    data.card.interaction?.subscription?.name || "알 수 없음",
+                  title: data.card.content?.title || "제목 없음",
+                  clipId: data.card.content?.contentId || "",
+                };
+
+                // content.js로 데이터 전송
+                window.postMessage(
+                  { type: "CHZZK_CLIP_METADATA", payload: payload },
+                  "*"
+                );
+              }
+            } catch (e) {
+              // 내부 처리 에러도 무시
+            }
+          })
+          .catch(() => {
+            // JSON 파싱 실패도 완전히 무시
+          });
+      } catch (e) {
+        // clone 실패 시에도 무시
+      }
+    }
+
+    // 원본 응답은 건드리지 않고 즉시 반환
+    return response;
+  };
 })();

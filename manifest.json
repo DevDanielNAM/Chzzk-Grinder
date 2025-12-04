@@ -11,18 +11,20 @@
   "background": {
     "service_worker": "background.js"
   },
-  "web_accessible_resources": [
-    {
-      "resources": ["inject.js"],
-      "matches": ["<all_urls>"]
-    }
-  ],
   "content_scripts": [
     {
-      "matches": ["https://chzzk.naver.com/*"],
-      "js": ["jspdf.js", "html-to-image.js", "inject.js", "content.js"],
+      "matches": ["https://chzzk.naver.com/*", "https://m.naver.com/shorts/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://chzzk.naver.com/*", "https://m.naver.com/shorts/*"],
+      "js": ["jspdf.js", "html-to-image.js", "content.js"],
       "css": ["content.css"],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "icons": {

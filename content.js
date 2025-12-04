@@ -1,7 +1,3 @@
-const script = document.createElement("script");
-script.src = chrome.runtime.getURL("inject.js");
-(document.head || document.documentElement).appendChild(script);
-
 // 데이터 및 설정
 const commentHashMap = new Map();
 const STORAGE_KEY = "CHZZK_REPLY_BLOCKED_USERS";
@@ -15,6 +11,7 @@ let domUpdateTimer = null;
 let currentMenuTargetHash = null; // '더보기' 메뉴가 열린 대상 유저의 Hash 저장용
 let pendingTargetId = null; // 포커싱해야 할 댓글 ID
 let lastProfileData = null; // 마지막으로 클릭한 유저의 프로필 데이터
+let currentClipMetadata = null; // 현재 클립의 메타데이터 저장용
 
 // 사용자 설정 기본값
 let userSettings = {
@@ -196,6 +193,19 @@ function textToImageDataURL(text, fontSize = 12, color = "#000000") {
   return canvas.toDataURL("image/png");
 }
 
+function extractCommentText(container) {
+  const parts = [];
+
+  container.childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent.trim();
+      if (text) parts.push(text);
+    }
+  });
+
+  return parts.join(" ").trim();
+}
+
 // 댓글 박스 캡처 함수
 function captureCommentBox(commentBoxElement, commentId, buttonElement, mode) {
   // 버튼 전체가 아니라 텍스트 라벨만 찾아서 조작
@@ -262,11 +272,13 @@ function captureCommentBox(commentBoxElement, commentId, buttonElement, mode) {
     document.querySelector(
       'div[class*="community_detail_name"] span[class*="name_text"]'
     )?.textContent ||
+    currentClipMetadata?.streamerName ||
     "알 수 없음";
 
   const title =
     document.querySelector('h2[class*="video_information_title"]')
       ?.textContent ||
+    currentClipMetadata?.title ||
     (document.querySelector(
       'div[class*="community_detail_name"] span[class*="name_text"]'
     ) == null
@@ -274,9 +286,11 @@ function captureCommentBox(commentBoxElement, commentId, buttonElement, mode) {
       : "커뮤니티");
 
   const content =
-    commentBoxElement.querySelector(
-      'div[class*="comment_item_content"] [class*="comment_item_text"]'
-    )?.lastChild.textContent ||
+    extractCommentText(
+      commentBoxElement.querySelector(
+        'div[class*="comment_item_content"] [class*="comment_item_text"]'
+      )
+    ) ||
     (commentBoxElement.querySelector(
       'div[class*="comment_item_attachment"] img'
     ) == null
@@ -432,6 +446,7 @@ function openBlockListModal() {
     displayType: "🚫 차단",
     sortTime: item.createdAt || new Date(Date(item.blockDate)).getTime(), // 정렬용 시간
     targetUrl: item.url, // 이동할 주소
+    streamerName: item.streamerName || "알 수 없음",
   }));
 
   const captureEntries = Object.values(blockedImagesCache).map((item) => ({
@@ -440,17 +455,21 @@ function openBlockListModal() {
     displayType: "📥 수집",
     sortTime: item.createdAt || new Date(Date(item.timestamp)).getTime(),
     targetUrl: item.pageUrl,
+    streamerName: item.streamer || "알 수 없음",
   }));
 
-  // 두 배열 합치기
+  // 통합 목록
   let allEntries = [...blockEntries, ...captureEntries];
-  // 차단 목록 데이터 준비
-  // const blockEntries = Object.values(blockedDetailsCache);
 
   if (allEntries.length === 0) {
     showToast("저장된 데이터(차단/수집)가 없습니다.", "info");
     return;
   }
+
+  // 스트리머 목록 추출 (중복 제거 및 정렬)
+  const streamerList = [
+    ...new Set(allEntries.map((e) => e.streamerName)),
+  ].sort();
 
   // 모달 생성
   const overlay = document.createElement("div");
@@ -464,15 +483,44 @@ function openBlockListModal() {
   header.className = "chzzk-modal-header";
   header.innerHTML = `
     <div class="chzzk-modal-title">
-      차단 유저 관리 (<span id="chzzk-block-count" style="color:#e74c3c;">${allEntries.length}</span>명)
+      차단 유저 관리 (<span id="chzzk-block-count" style="color:#e74c3c;">${
+        allEntries.length
+      }</span>명)
+    </div>
+    <div class="chzzk-modal-header-controls">
+      <select id="chzzk-block-filter" class="chzzk-sort-select">
+        <option value="ALL">전체 방송</option>
+        ${streamerList
+          .map((s) => `<option value="${s}">${s}</option>`)
+          .join("")}
+      </select>
+      <span class="chzzk-modal-close" style="margin-left:5px;">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M7.79289 7.79289C8.18342 7.40237 8.81658 7.40237 9.20711 7.79289L22.2071 20.7929C22.5976 21.1834 22.5976 21.8166 22.2071 22.2071C21.8166 22.5976 21.1834 22.5976 20.7929 22.2071L7.79289 9.20711C7.40237 8.81658 7.40237 8.18342 7.79289 7.79289Z"
+              fill="currentColor"
+            ></path>
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M7.79289 22.2071C7.40237 21.8166 7.40237 21.1834 7.79289 20.7929L20.7929 7.79289C21.1834 7.40237 21.8166 7.40237 22.2071 7.79289C22.5976 8.18342 22.5976 8.81658 22.2071 9.20711L9.20711 22.2071C8.81658 22.5976 8.18342 22.5976 7.79289 22.2071Z"
+              fill="currentColor"
+            ></path>
+          </svg>
+      </span>
     </div>
   `;
 
-  const closeBtn = document.createElement("span");
-  closeBtn.className = "chzzk-modal-close";
-  closeBtn.innerHTML = "&times;";
-  closeBtn.onclick = () => overlay.remove();
-  header.appendChild(closeBtn);
+  // 닫기 이벤트 연결
+  header.querySelector(".chzzk-modal-close").onclick = () => overlay.remove();
 
   // 바디
   const body = document.createElement("div");
@@ -482,14 +530,58 @@ function openBlockListModal() {
   const listContainer = document.createElement("div");
   body.appendChild(listContainer);
 
+  // 필터 옵션을 동적으로 갱신하는 함수 추가
+  const updateFilterUI = () => {
+    const filterSelect = header.querySelector("#chzzk-block-filter");
+    const currentSelection = filterSelect.value; // 현재 선택된 값 저장
+
+    // 현재 남은 데이터에서 스트리머 목록 다시 추출
+    const currentStreamers = [
+      ...new Set(allEntries.map((e) => e.streamerName)),
+    ].sort();
+
+    // 옵션 재생성
+    let html = `<option value="ALL">전체 방송</option>`;
+    currentStreamers.forEach((s) => {
+      html += `<option value="${s}">${s}</option>`;
+    });
+    filterSelect.innerHTML = html;
+
+    // 이전에 선택했던 스트리머가 아직 목록에 있다면 유지, 없으면 'ALL'로 리셋
+    if (currentStreamers.includes(currentSelection)) {
+      filterSelect.value = currentSelection;
+    } else {
+      filterSelect.value = "ALL";
+    }
+  };
+
   // 리스트 렌더링
   const renderList = () => {
     listContainer.innerHTML = "";
 
-    // 최신순(내림차순) 정렬: 날짜 문자열 비교
-    allEntries.sort((a, b) => b.sortTime - a.sortTime);
+    // 필터링 적용
+    const filterValue = header.querySelector("#chzzk-block-filter").value;
 
-    allEntries.forEach((user) => {
+    const filteredEntries = allEntries
+      .filter(
+        (item) => filterValue === "ALL" || item.streamerName === filterValue
+      )
+      .sort((a, b) => b.sortTime - a.sortTime);
+
+    if (filteredEntries.length === 0) {
+      listContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#888;">표시할 내역이 없습니다.</div>`;
+
+      const countSpan = header.querySelector("#chzzk-block-count");
+      if (countSpan) countSpan.innerText = "0";
+
+      return;
+    }
+
+    // 현재 표시되는 개수 업데이트
+    const countSpan = header.querySelector("#chzzk-block-count");
+    if (countSpan) countSpan.innerText = filteredEntries.length;
+
+    filteredEntries.forEach((user) => {
       const item = document.createElement("div");
       item.className = "chzzk-block-item";
 
@@ -544,8 +636,9 @@ function openBlockListModal() {
           allEntries = allEntries.filter(
             (e) => e.uid !== user.uid || e.dataType !== "block"
           );
+
+          updateFilterUI();
           renderList();
-          updateCount();
         };
       } else {
         unblockBtn.innerText = "수집 삭제";
@@ -573,8 +666,9 @@ function openBlockListModal() {
             allEntries = allEntries.filter(
               (e) => e.commentId !== user.commentId || e.dataType !== "capture"
             );
+
+            updateFilterUI();
             renderList();
-            updateCount();
           }
         };
       }
@@ -583,17 +677,8 @@ function openBlockListModal() {
     });
   };
 
-  // 카운트 갱신
-  const updateCount = () => {
-    document.querySelectorAll(".chzzk-block-item").length; // 현재 리스트 개수로 확인
-    const countSpan = header.querySelector("#chzzk-block-count");
-    if (countSpan) countSpan.innerText = allEntries.length;
-
-    if (updateCount === 0) {
-      showToast("목록이 비었습니다.", "info");
-      overlay.remove();
-    }
-  };
+  // 필터 변경 이벤트 연결
+  header.querySelector("#chzzk-block-filter").onchange = () => renderList();
 
   // 푸터
   const footer = document.createElement("div");
@@ -623,6 +708,7 @@ function openBlockListModal() {
   document.body.appendChild(overlay);
 
   // 초기 렌더링
+  updateFilterUI();
   renderList();
 }
 
@@ -632,12 +718,15 @@ function openPdfModal() {
   let images = Object.entries(blockedImagesCache).map(([key, value]) => ({
     ...value,
     id: key,
+    streamer: value.streamer || "알 수 없음",
   }));
 
   if (images.length === 0) {
     showToast("저장된 캡처 이미지가 없습니다.", "info");
     return;
   }
+
+  const streamerList = [...new Set(images.map((img) => img.streamer))].sort();
 
   // 모달 기본 구조 생성
   const overlay = document.createElement("div");
@@ -652,10 +741,19 @@ function openPdfModal() {
   header.innerHTML = `
     <div style="display:flex; align-items:center; gap:10px">
       <span class="chzzk-modal-title">PDF 생성 목록</span>
+
       <select id="chzzk-sort-select" class="chzzk-sort-select">
         <option value="desc">최신순</option>
         <option value="asc">오래된순</option>
       </select>
+
+      <select id="chzzk-pdf-filter" class="chzzk-sort-select">
+        <option value="ALL">전체 방송</option>
+        ${streamerList
+          .map((s) => `<option value="${s}">${s}</option>`)
+          .join("")}
+      </select>
+
       <div style="font-size:13px;">
         선택 <span id="chzzk-selected-count" style="color:#e74c3c; font-weight:bold;">0</span> / 
         전체 <span id="chzzk-total-count">0</span>
@@ -665,7 +763,28 @@ function openPdfModal() {
 
   const closeBtn = document.createElement("span");
   closeBtn.className = "chzzk-modal-close";
-  closeBtn.innerHTML = "&times;";
+  closeBtn.innerHTML = `
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M7.79289 7.79289C8.18342 7.40237 8.81658 7.40237 9.20711 7.79289L22.2071 20.7929C22.5976 21.1834 22.5976 21.8166 22.2071 22.2071C21.8166 22.5976 21.1834 22.5976 20.7929 22.2071L7.79289 9.20711C7.40237 8.81658 7.40237 8.18342 7.79289 7.79289Z"
+              fill="currentColor"
+            ></path>
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M7.79289 22.2071C7.40237 21.8166 7.40237 21.1834 7.79289 20.7929L20.7929 7.79289C21.1834 7.40237 21.8166 7.40237 22.2071 7.79289C22.5976 8.18342 22.5976 8.81658 22.2071 9.20711L9.20711 22.2071C8.81658 22.5976 8.18342 22.5976 7.79289 22.2071Z"
+              fill="currentColor"
+            ></path>
+          </svg>
+  `;
   closeBtn.style.marginLeft = "15px";
   closeBtn.onclick = () => overlay.remove();
   header.appendChild(closeBtn);
@@ -724,24 +843,51 @@ function openPdfModal() {
     header.querySelector("#chzzk-selected-count").innerText = selected;
   };
 
+  // [내부 함수] 필터 UI 갱신
+  const updateFilterUI = () => {
+    const filterSelect = header.querySelector("#chzzk-pdf-filter");
+    const currentSelection = filterSelect.value;
+
+    // 현재 남은 이미지 데이터에서 스트리머 추출
+    const currentStreamers = [
+      ...new Set(images.map((img) => img.streamer)),
+    ].sort();
+
+    let html = `<option value="ALL">전체 방송</option>`;
+    currentStreamers.forEach((s) => {
+      html += `<option value="${s}">${s}</option>`;
+    });
+    filterSelect.innerHTML = html;
+
+    if (currentStreamers.includes(currentSelection)) {
+      filterSelect.value = currentSelection;
+    } else {
+      filterSelect.value = "ALL";
+    }
+  };
+
   // [내부 함수] 리스트 렌더링 (정렬 로직 포함)
-  const renderList = (sortType) => {
+  const renderList = () => {
     listContainer.innerHTML = ""; // 기존 목록 초기화
 
-    // 정렬 실행
-    images.sort((a, b) => {
-      // createdAt(숫자) 우선 비교, 없으면 timestamp(문자열) 비교
+    const sortType = header.querySelector("#chzzk-sort-select").value;
+    const filterValue = header.querySelector("#chzzk-pdf-filter").value;
+
+    // 1. 필터링
+    let filteredImages = images.filter(
+      (img) => filterValue === "ALL" || img.streamer === filterValue
+    );
+
+    // 2. 정렬
+    filteredImages.sort((a, b) => {
       const timeA = a.createdAt || 0;
       const timeB = b.createdAt || 0;
-
       if (sortType === "asc") {
-        // 오래된순 (작은게 위로)
         return (
           timeA - timeB ||
           String(a.timestamp).localeCompare(String(b.timestamp))
         );
       } else {
-        // 최신순 (큰게 위로)
         return (
           timeB - timeA ||
           String(b.timestamp).localeCompare(String(a.timestamp))
@@ -749,8 +895,14 @@ function openPdfModal() {
       }
     });
 
+    if (filteredImages.length === 0) {
+      listContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#888;">표시할 내역이 없습니다.</div>`;
+      updateCountUI();
+      return;
+    }
+
     // 아이템 생성 루프
-    images.forEach((img) => {
+    filteredImages.forEach((img) => {
       const item = document.createElement("div");
       item.className = "chzzk-capture-item";
       item.dataset.id = img.id;
@@ -799,8 +951,19 @@ function openPdfModal() {
         // 배열에서도 제거 (재정렬 시 안 나오게)
         images = images.filter((i) => i.id !== img.id);
 
+        // UI에서 항목 제거
         item.remove();
-        updateCountUI();
+
+        // 필터 UI 갱신
+        updateFilterUI();
+
+        // 현재 필터 상태에 따라 전체 렌더링 또는 개수만 갱신
+        const currentFilter = header.querySelector("#chzzk-pdf-filter").value;
+        if (currentFilter === "ALL" && img.streamer !== "ALL") {
+          renderList(); // 전체 목록 다시 렌더링
+        } else {
+          updateCountUI(); // 개수만 갱신
+        }
 
         // 메인 화면 버튼 복구
         const commentBox = document.getElementById(`commentBox-${img.id}`);
@@ -868,10 +1031,10 @@ function openPdfModal() {
 
   // 이벤트 연결
   // 1. 정렬 변경 이벤트
-  const sortSelect = header.querySelector("#chzzk-sort-select");
-  sortSelect.onchange = (e) => {
-    renderList(e.target.value);
-  };
+  header.querySelector("#chzzk-sort-select").onchange = () => renderList();
+
+  // 2. 필터 변경 이벤트
+  header.querySelector("#chzzk-pdf-filter").onchange = () => renderList();
 
   // 2. 전체 선택 이벤트
   const selectAllCb = selectAllLabel.querySelector("#chzzk-select-all");
@@ -882,8 +1045,9 @@ function openPdfModal() {
     updateCountUI();
   };
 
-  // 초기 렌더링 (기본: 최신순)
-  renderList("desc");
+  // 초기 렌더링
+  updateFilterUI();
+  renderList();
 }
 
 // 실제 PDF 생성 로직 (모달에서 호출)
@@ -1113,11 +1277,16 @@ function updateDom() {
         oldTooltips.forEach((t) => t.remove());
       }
 
-      if (!box.dataset.uiInjected) {
-        const nicknameEl = box.querySelector('span[class*="name_text"]');
-        // 닉네임 옆에 아직 버튼 그룹(.chzzk-btn-group)이 없는 경우에만 추가
-        if (nicknameEl && !box.querySelector(".chzzk-btn-group")) {
-          injectButtonGroup(nicknameEl, userHash, box, commentId);
+      const nicknameEl = box.querySelector('span[class*="name_text"]');
+      // 닉네임 옆에 아직 버튼 그룹(.chzzk-btn-group)이 없는 경우에만 추가
+      if (nicknameEl) {
+        const hasGroup =
+          nicknameEl.parentElement.querySelector(".chzzk-btn-group");
+        if (!hasGroup) {
+          const already = box.querySelector(
+            `.chzzk-btn-group[data-comment-id="${commentId}"]`
+          );
+          if (!already) injectButtonGroup(nicknameEl, userHash, box, commentId);
           box.dataset.uiInjected = "true";
         }
       }
@@ -1251,6 +1420,8 @@ function updateDom() {
       }
     }
   });
+  // DOM 변경이 감지될 때마다 버튼 표시 상태(클립 댓글창 유무)를 재확인
+  toggleExportButtonVisibility();
 }
 
 // 툴팁 요소를 버튼 내부에 추가하는 헬퍼 함수
@@ -1271,6 +1442,8 @@ function injectButtonGroup(targetElement, hash, commentBoxElement, commentId) {
 
   // 이 그룹이 어떤 유저의 것인지 마킹 (재사용 감지용)
   group.dataset.ownerHash = hash;
+  // 이 그룹이 어떤 댓글인지 마킹 (재사용 감지용)
+  group.dataset.commentId = commentId;
 
   // [1] 복사 버튼
   const copyBtn = document.createElement("span");
@@ -1373,6 +1546,7 @@ function injectButtonGroup(targetElement, hash, commentBoxElement, commentId) {
       document.querySelector(
         'div[class*="community_detail_name"] span[class*="name_text"]'
       )?.textContent ||
+      currentClipMetadata?.streamerName ||
       "알 수 없음";
 
     const nickname = targetElement.textContent || "알 수 없음";
@@ -1380,6 +1554,7 @@ function injectButtonGroup(targetElement, hash, commentBoxElement, commentId) {
     const title =
       document.querySelector('h2[class*="video_information_title"]')
         ?.textContent ||
+      currentClipMetadata?.title ||
       (document.querySelector(
         'div[class*="community_detail_name"] span[class*="name_text"]'
       ) == null
@@ -1403,8 +1578,7 @@ function injectButtonGroup(targetElement, hash, commentBoxElement, commentId) {
     // 3. 텍스트 추출
     let content = "";
     if (contentEl) {
-      // 불필요한 공백 제거
-      content = contentEl.lastChild.textContent.trim();
+      content = extractCommentText(contentEl);
     }
 
     // 4. 텍스트가 비어있다면 이미지/이모티콘인지 확인
@@ -1433,7 +1607,29 @@ function injectButtonGroup(targetElement, hash, commentBoxElement, commentId) {
   group.appendChild(collectBtn);
   group.appendChild(blockBtn);
 
-  targetElement.parentNode.appendChild(group);
+  // URL에 따라 삽입 위치 결정
+  const isClipPage = location.pathname.includes("/clips/");
+
+  if (isClipPage) {
+    // 1. 클립 페이지인 경우: 내용(content) 앞에 삽입
+    const contentEl = commentBoxElement.querySelector(
+      'div[class*="comment_item_content"]'
+    );
+
+    if (contentEl) {
+      // 클립 전용 클래스 추가
+      group.classList.add("chzzk-clip-mode");
+
+      // contentEl의 부모 요소 내에서 contentEl 바로 앞에 삽입
+      contentEl.parentNode.insertBefore(group, contentEl);
+    } else {
+      // 구조가 다를 경우(예외) 기존 방식대로 닉네임 옆에 추가
+      targetElement.parentNode.appendChild(group);
+    }
+  } else {
+    // 2. 일반(방송/커뮤니티) 페이지인 경우: 닉네임 옆
+    targetElement.parentNode.appendChild(group);
+  }
 }
 
 // 치지직 공식 차단/해제 버튼 주입
@@ -1608,19 +1804,108 @@ function exportToCSV() {
 function shouldShowExportButton() {
   const path = window.location.pathname;
   // 영상 페이지(/video/...) 또는 커뮤니티 페이지(/.../community/...) 인지 확인
-  return path.includes("/video/") || path.includes("/community/");
+  return (
+    path.includes("/video/") ||
+    path.includes("/community/") ||
+    path.includes("/clips/")
+  );
 }
 
 // URL에 따라 버튼 표시 여부 토글
 function toggleExportButtonVisibility() {
   const container = document.getElementById("chzzk-export-container");
-  if (container) {
-    if (shouldShowExportButton()) {
-      container.style.display = "flex";
+  if (!container) return;
+
+  const path = window.location.pathname;
+  const isClip = path.includes("/clips/");
+
+  // 표시 여부 결정
+  let shouldShow = false;
+
+  if (isClip) {
+    // 클립 페이지: .clip_viewer_comment 요소가 실제로 존재할 때만 표시
+    if (document.querySelector('div[class*="clip_viewer_comment"]')) {
+      shouldShow = true;
+      container.classList.add("is-clip-mode"); // 왼쪽 이동 스타일 적용
     } else {
-      container.style.display = "none";
+      shouldShow = false;
     }
+  } else if (path.includes("/video/") || path.includes("/community/")) {
+    // 일반 영상/커뮤니티: 항상 표시
+    shouldShow = true;
+    container.classList.remove("is-clip-mode"); // 오른쪽 원래 위치
   }
+
+  // 최종 적용
+  container.style.display = shouldShow ? "flex" : "none";
+}
+
+function initExportVisibilityOnVodPlayer() {
+  // top frame에서만 (iframe 중복 방지)
+  if (window.top !== window) return;
+
+  const exportEl = document.getElementById("chzzk-export-container");
+  if (!exportEl) return;
+
+  const isVideoPage = () => location.pathname.startsWith("/video");
+  const playerSelector = "[class*='vod_player']";
+
+  const setHidden = (hidden) => {
+    exportEl.classList.toggle("chzzk-export-hidden", hidden);
+  };
+
+  let io = null;
+
+  const attachObserver = (playerEl) => {
+    if (io) io.disconnect();
+
+    io = new IntersectionObserver(
+      ([entry]) => {
+        // 플레이어가 화면에 조금이라도 보이면 숨김
+        const playerVisible =
+          !!entry && entry.isIntersecting && entry.intersectionRatio > 0;
+        setHidden(isVideoPage() ? playerVisible : false);
+      },
+      { threshold: [0, 0.01] }
+    );
+
+    io.observe(playerEl);
+  };
+
+  const refresh = () => {
+    if (!isVideoPage()) {
+      setHidden(false);
+      return;
+    }
+
+    const playerEl = document.querySelector(playerSelector);
+    if (!playerEl) {
+      // 플레이어를 아직 못 찾으면 일단 보이게
+      setHidden(false);
+      return;
+    }
+    attachObserver(playerEl);
+  };
+
+  // 최초 1회
+  refresh();
+
+  // SPA/DOM 변동 대응: 플레이어가 늦게 생기거나 class가 갈아끼워질 수 있으니 감시
+  const mo = new MutationObserver(() => refresh());
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  // 라우팅 변경 대응
+  window.addEventListener("popstate", refresh);
+  const _pushState = history.pushState;
+  history.pushState = function (...args) {
+    _pushState.apply(this, args);
+    refresh();
+  };
+  const _replaceState = history.replaceState;
+  history.replaceState = function (...args) {
+    _replaceState.apply(this, args);
+    refresh();
+  };
 }
 
 // CSV, PDF 다운로드 버튼 UI 생성
@@ -1692,7 +1977,28 @@ function createExportButton() {
   container.appendChild(pdfBtn);
   container.appendChild(clearBtn);
 
-  document.body.appendChild(container);
+  // 이미 있으면 중복 생성 방지
+  if (document.getElementById("chzzk-export-container")) return;
+
+  // iframe에서는 만들지 않기 (원하면 유지해도 되지만 보통 top만)
+  if (window.top !== window) return;
+
+  const mount = document.body ?? document.documentElement;
+  if (!mount) return; // 극초반엔 이것도 없을 수 있음
+
+  if (!document.body) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        document.body?.appendChild(container);
+        initExportVisibilityOnVodPlayer();
+      },
+      { once: true }
+    );
+  } else {
+    document.body.appendChild(container);
+    initExportVisibilityOnVodPlayer();
+  }
 
   updateExportButtonUI(); // 초기값 설정
 }
@@ -1715,10 +2021,6 @@ function checkUrlForTarget() {
 
   // 타겟 설정
   pendingTargetId = targetId;
-
-  // (중요) updateDom 안에서 처리하도록 유도하거나, 여기서 직접 DOM을 찾음
-  // updateDom은 댓글이 로딩될 때마다 계속 돌기 때문에,
-  // 거기서 pendingTargetId를 체크하는 로직이 이미 있다면 이 함수는 변수 세팅만 해줘도 충분합니다.
 }
 
 // -- 메시지 수신 핸들러 --
@@ -1739,6 +2041,22 @@ window.addEventListener("message", (event) => {
     return;
   }
 
+  // 클립 메타데이터 수신
+  if (event.data.type === "CHZZK_CLIP_METADATA") {
+    const payload = event.data.payload;
+
+    // 만약 내가 iframe 안에 있다면 -> 백그라운드로 전달
+    if (window.self !== window.top) {
+      chrome.runtime.sendMessage({
+        type: "RELAY_CLIP_METADATA",
+        payload: payload,
+      });
+    } else {
+      // (혹시 메인 창에서 잡혔다면 바로 저장)
+      currentClipMetadata = payload;
+    }
+  }
+
   if (event.data.type !== "CHZZK_XHR_DATA") return;
   const data = event.data.payload;
   if (!data || !data.content) return;
@@ -1748,6 +2066,13 @@ window.addEventListener("message", (event) => {
     parseComments(data.content.comments.data);
 
   scheduleUpdateDom();
+});
+
+// 2. [Top Frame용] 백그라운드에서 중계된 데이터 받기
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "BROADCAST_CLIP_METADATA") {
+    currentClipMetadata = request.payload;
+  }
 });
 
 // 프로필 팝업에 UID 주입 함수
