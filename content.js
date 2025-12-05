@@ -694,7 +694,17 @@ function openBlockListModal() {
   downloadBtn.className = "chzzk-btn chzzk-btn-primary chzzk-csv-btn";
   downloadBtn.innerHTML = "💾 CSV 파일로 저장";
   downloadBtn.onclick = () => {
-    exportToCSV();
+    // 1. 현재 필터값 확인
+    const filterValue = header.querySelector("#chzzk-block-filter").value;
+
+    // 2. 현재 allEntries에서 필터링 수행
+    const filteredEntries = allEntries.filter(
+      (item) => filterValue === "ALL" || item.streamerName === filterValue
+    );
+
+    // 3. 필터링된 데이터를 인자로 전달
+    exportToCSV(filteredEntries);
+
     overlay.remove();
   };
 
@@ -1746,12 +1756,24 @@ function applyNativeBlockUI(userHash) {
 }
 
 // CSV 내보내기 (차단 목록 + 캡처 수집 목록 통합)
-function exportToCSV() {
-  const blockEntries = Object.values(blockedDetailsCache);
-  const captureEntries = Object.values(blockedImagesCache);
+function exportToCSV(filteredList = null) {
+  let entriesToExport = filteredList;
 
-  if (blockEntries.length === 0 && captureEntries.length === 0) {
-    showToast("저장된 데이터(차단/수집)가 없습니다.", "info");
+  // 1. 전달받은 리스트가 없으면(메인 화면 버튼 등) 전체 캐시에서 병합 생성
+  if (!entriesToExport) {
+    const blockEntries = Object.values(blockedDetailsCache).map((item) => ({
+      ...item,
+      dataType: "block",
+    }));
+    const captureEntries = Object.values(blockedImagesCache).map((item) => ({
+      ...item,
+      dataType: "capture",
+    }));
+    entriesToExport = [...blockEntries, ...captureEntries];
+  }
+
+  if (entriesToExport.length === 0) {
+    showToast("저장할 데이터가 없습니다.", "info");
     return;
   }
 
@@ -1761,24 +1783,25 @@ function exportToCSV() {
 
   const clean = (text) => `"${String(text || "").replace(/"/g, '""')}"`;
 
-  // 1. 차단 목록 추가
-  blockEntries.forEach((row) => {
-    csvContent += `${clean("차단")},${clean(row.streamerName)},${clean(
-      row.title
-    )},${clean(row.blockDate)},${clean(row.nickname)},${clean(row.uid)},${clean(
-      row.content
-    )},${clean(row.url)}\n`;
-  });
+  // 2. 통합 루프 (데이터 정규화)
+  entriesToExport.forEach((row) => {
+    // 유형 결정
+    const typeLabel = row.dataType === "block" ? "차단" : "캡처수집";
 
-  // 2. 캡처 수집 목록 추가
-  captureEntries.forEach((row) => {
-    // 중복 제거: 만약 차단 목록에 이미 있는 UID라면, 굳이 또 넣을지 말지 결정
-    // 여기서는 '캡처'라는 행위가 중요하므로 중복되더라도 기록으로 남김
-    csvContent += `${clean("캡처수집")},${clean(row.streamer)},${clean(
-      row.title
-    )},${clean(row.timestamp)},${clean(row.nickname)},${clean(row.uid)},${clean(
+    // 필드명 정규화 (모달 데이터와 원본 캐시 데이터의 키 차이 대응)
+    // 모달 데이터는 'streamerName'으로 통일되어 있고, 원본 캐시는 'streamer'(수집)와 'streamerName'(차단)이 섞여 있음
+    const streamer = row.streamerName || row.streamer || "";
+    const title = row.title || "";
+    // 날짜: blockDate(차단) 혹은 timestamp(수집)
+    const date = row.blockDate || row.timestamp || "";
+    // URL: url(차단), pageUrl(수집)
+    const url = row.url || row.pageUrl || "";
+
+    csvContent += `${clean(typeLabel)},${clean(streamer)},${clean(
+      title
+    )},${clean(date)},${clean(row.nickname)},${clean(row.uid)},${clean(
       row.content
-    )},${clean(row.pageUrl)}\n`;
+    )},${clean(url)}\n`;
   });
 
   // 3. Blob 생성 후 백그라운드로 전송
