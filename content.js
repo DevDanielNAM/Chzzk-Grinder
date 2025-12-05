@@ -491,6 +491,11 @@ function openBlockListModal() {
       }</span>명)
     </div>
     <div class="chzzk-modal-header-controls">
+      <select id="chzzk-block-sort" class="chzzk-sort-select">
+          <option value="desc">최신순</option>
+          <option value="asc">오래된순</option>
+        </select>
+
       <select id="chzzk-block-filter" class="chzzk-sort-select">
         <option value="ALL">전체 방송</option>
         ${streamerList
@@ -562,14 +567,21 @@ function openBlockListModal() {
   const renderList = () => {
     listContainer.innerHTML = "";
 
-    // 필터링 적용
+    // 정렬 및 필터 값 가져오기
+    const sortType = header.querySelector("#chzzk-block-sort").value;
     const filterValue = header.querySelector("#chzzk-block-filter").value;
 
     const filteredEntries = allEntries
       .filter(
         (item) => filterValue === "ALL" || item.streamerName === filterValue
       )
-      .sort((a, b) => b.sortTime - a.sortTime);
+      .sort((a, b) => {
+        if (sortType === "asc") {
+          return a.sortTime - b.sortTime; // 오래된순
+        } else {
+          return b.sortTime - a.sortTime; // 최신순
+        }
+      });
 
     if (filteredEntries.length === 0) {
       listContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#888;">표시할 내역이 없습니다.</div>`;
@@ -679,6 +691,9 @@ function openBlockListModal() {
       listContainer.appendChild(item);
     });
   };
+
+  // 정렬 변경 이벤트 연결
+  header.querySelector("#chzzk-block-sort").onchange = () => renderList();
 
   // 필터 변경 이벤트 연결
   header.querySelector("#chzzk-block-filter").onchange = () => renderList();
