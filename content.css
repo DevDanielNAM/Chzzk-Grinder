@@ -628,3 +628,31 @@ html[data-theme="dark"],
 .chzzk-toggle-label:hover {
   filter: brightness(1.2);
 }
+
+/* 클립 오버레이 자동 숨김/표시 기능 */
+/* 1. 클립 정보(클릭하여 라이브 시청)를 기본적으로 숨김 */
+[class*="FloatingButtonView-module__wrap"] {
+  opacity: 0 !important;
+  transition: opacity 0.2s ease !important;
+  pointer-events: none !important;
+}
+/* 2. 뷰어 영역(비디오 포함)에 마우스가 올라가면(hover) 다시 표시 */
+[class*="ContentViewerView-module__viewer"]:hover
+  [class*="FloatingButtonView-module__wrap"] {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+/* 1. 네비게이션 레이어(화살표)를 기본적으로 숨김 */
+[class*="NavigationLayerView-module__layer"] {
+  opacity: 0 !important;
+  transition: opacity 0.2s ease !important;
+  pointer-events: none !important;
+}
+/* 2. 조건부 표시 로직 */
+/* 조건 A: AppView(부모)가 '호버된 뷰어(ContentViewer)'를 가지고 있을 때 */
+[class*="AppView-module__wrap"]:has([class*="ContentViewerView-module__viewer"]:hover) [class*="NavigationLayerView-module__layer"],
+/* 조건 B: 또는 마우스가 이미 화살표(NavigationLayer) 위에 올라가 있을 때 (클릭하려는데 사라짐 방지) */
+[class*="NavigationLayerView-module__layer"]:hover {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
