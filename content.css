@@ -656,3 +656,10 @@ html[data-theme="dark"],
   opacity: 1 !important;
   pointer-events: auto !important;
 }
+
+/* 팔로잉탭 라이브 정렬 필터 셀렉트박스 높이 조정 */
+[class*="navigation_component_filter"]
+  [class*="selectbox_container"]
+  button#live-order[aria-controls="selectbox-listbox"] {
+  height: 28px;
+}
