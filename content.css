@@ -33,23 +33,55 @@ html[data-theme="dark"],
   vertical-align: middle;
   gap: 2px;
 }
+
 /* 클립(Clip) 페이지 전용 스타일 */
+div[class*="vod_comment_container"] span[class*="name_show_tooltip"] {
+  display: inline-flex;
+  align-items: center;
+}
 .chzzk-btn-group.chzzk-clip-mode {
-  padding: 10px 0px 5px 46px;
+  width: 100%;
+  justify-content: flex-end;
+  padding: 12px 18px 5px 0px;
   margin: 0;
   font-weight: 600;
 }
 .chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured) {
-  padding: 10px 0px 5px 27px;
+  padding: 12px 0px 5px;
+  font-weight: normal;
+}
+.chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured)
+  .chzzk-block-btn
+  .chzzk-tooltip-text {
+  left: 10%;
+}
+.chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured)
+  .chzzk-block-btn.is-blocked
+  .chzzk-tooltip-text {
+  left: -15%;
 }
 [class*="comment_item_is_replied"] .chzzk-btn-group.chzzk-clip-mode {
-  padding: 10px 0px 5px 13px;
-  margin: 0;
+  padding: 12px 0px 5px;
+  margin-left: -18px;
 }
 [class*="comment_item_is_replied"]
   .chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured) {
-  padding: 10px 0px 5px 0px;
+  width: 111%;
+  padding: 12px 0px 5px;
   margin-left: -40px;
+  font-weight: normal;
+}
+[class*="comment_item_is_replied"]
+  .chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured)
+  .chzzk-block-btn
+  .chzzk-tooltip-text {
+  left: 10%;
+}
+[class*="comment_item_is_replied"]
+  .chzzk-btn-group.chzzk-clip-mode:has(.chzzk-collect-btn.is-captured)
+  .chzzk-block-btn.is-blocked
+  .chzzk-tooltip-text {
+  left: -15%;
 }
 
 /* 공통 버튼 스타일 */
@@ -118,7 +150,7 @@ html[data-theme="dark"],
   visibility: hidden;
   width: max-content;
   min-width: 60px;
-  max-width: 200px;
+  max-width: 220px;
   background-color: var(--Surface-Neutral-Base, #333);
   color: var(--Content-Neutral-Cool-Stronger, #fff);
   box-shadow: 0 2px 8px 0 var(--color-shadow-layer04-02, rgba(0, 0, 0, 0.2)),

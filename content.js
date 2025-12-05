@@ -194,6 +194,9 @@ function textToImageDataURL(text, fontSize = 12, color = "#000000") {
 }
 
 function extractCommentText(container) {
+  // container가 null이거나 undefined면 빈 문자열 반환 (오류 방지)
+  if (!container) return "";
+
   const parts = [];
 
   container.childNodes.forEach((node) => {
@@ -1339,12 +1342,19 @@ function updateDom() {
 
               // 2. 없으면 생성해서 contentEl 바로 뒤에 삽입
               if (!tooltip) {
+                const isClipPage = location.pathname.includes("/clips/");
+
                 tooltip = document.createElement("span");
                 tooltip.className = "chzzk-tooltip-text for-blur";
                 tooltip.innerText = "차단된 댓글입니다. 클릭하여 잠시 확인";
 
-                tooltip.style.bottom = "100%";
-                tooltip.style.left = "50%";
+                if (isClipPage) {
+                  tooltip.style.bottom = "80%";
+                  tooltip.style.left = "50%";
+                } else {
+                  tooltip.style.bottom = "100%";
+                  tooltip.style.left = "50%";
+                }
 
                 contentEl.after(tooltip); // 자식(appendChild)이 아니라 형제(after)로 삽입
               }
