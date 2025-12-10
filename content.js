@@ -66,7 +66,12 @@ let isDataLoaded = false; // 데이터가 로드되었는지 확인하는 변수
 // 2. 초기화: 저장된 데이터 불러오기 (비동기)
 function initBlockedUsers() {
   chrome.storage.local.get(
-    [STORAGE_KEY, STORAGE_DETAILS_KEY, STORAGE_IMAGES_KEY],
+    [
+      STORAGE_KEY,
+      STORAGE_DETAILS_KEY,
+      STORAGE_IMAGES_KEY,
+      STORAGE_SETTINGS_KEY,
+    ],
     (result) => {
       blockedUsersCache = result[STORAGE_KEY] || [];
       blockedDetailsCache = result[STORAGE_DETAILS_KEY] || {};
