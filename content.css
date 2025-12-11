@@ -193,7 +193,7 @@ div[class*="vod_comment_container"] span[class*="name_show_tooltip"] {
   font-weight: bold;
 }
 
-/* 차단 목록 리스트 아이템 (텍스트 위주) */
+/* 차단 목록 리스트 아이템 */
 .chzzk-block-item {
   background-color: var(--Surface-Neutral-Weaker);
   border-radius: 8px;
@@ -229,6 +229,14 @@ div[class*="vod_comment_container"] span[class*="name_show_tooltip"] {
   flex: 1;
   font-size: 13px;
   overflow: hidden;
+}
+.chzzk-block-info .chzzk-chat-block-nickname {
+  font-weight: bold;
+}
+.chzzk-block-info .chzzk-chat-block-uid {
+  font-size: 11px;
+  color: var(--Content-Neutral-Cool-Weak);
+  margin-top: 2px;
 }
 .chzzk-block-info .meta {
   font-size: 11px;
@@ -289,6 +297,20 @@ div[class*="vod_comment_container"] span[class*="name_show_tooltip"] {
   flex-direction: column;
   overflow: hidden;
   font-family: sans-serif;
+}
+.chzzk-empty-msg {
+  text-align: center;
+  padding: 20px;
+  color: var(--Content-Neutral-Cool-Weak);
+}
+#chzzk-chat-block-modal .chzzk-modal-content {
+  max-width: 400px;
+  height: 500px;
+}
+#chzzk-chat-block-modal #chzzk-chat-block-count {
+  color: #e74c3c;
+  font-size: 0.9em;
+  margin-left: 5px;
 }
 .chzzk-modal-header {
   padding: 15px 20px;
@@ -694,4 +716,57 @@ div[class*="vod_comment_container"] span[class*="name_show_tooltip"] {
   [class*="selectbox_container"]
   button#live-order[aria-controls="selectbox-listbox"] {
   height: 28px;
+}
+
+.chzzk-chat-manage-wrapper {
+  position: relative;
+}
+.chzzk-chat-manage-btn {
+  align-items: center;
+  border-radius: 4px;
+  display: flex;
+  font-size: 15px;
+  font-weight: 500;
+  gap: 0 20px;
+  height: 36px;
+  padding: 0 8px;
+  white-space: nowrap;
+  width: 100%;
+}
+.chzzk-chat-manage-btn:hover {
+  background-color: rgba(var(--Content-Neutral-Primary-rgb), 0.05);
+}
+.chzzk-chat-manage-contents {
+  align-items: center;
+  color: var(--Content-Neutral-Cool-Stronger);
+  display: flex;
+  gap: 0 8px;
+}
+.chzzk-chat-manage-contents:only-child {
+  padding-right: 4px;
+}
+.chzzk-chat-manage-contents svg {
+  color: var(--Content-Neutral-Cool-Base);
+  flex: none;
+}
+
+.chzzk-chat-block-btn {
+  align-items: center;
+  border-radius: 4px;
+  color: var(--color-content-02);
+  display: flex;
+  font-size: 15px;
+  font-weight: 500;
+  gap: 0 6px;
+  height: 36px;
+  padding: 0 4px;
+  position: relative;
+  white-space: nowrap;
+  width: 100%;
+}
+.chzzk-chat-block-btn:hover {
+  background-color: var(--color-bg-overlay-03);
+}
+.chzzk-chat-block-btn svg {
+  color: var(--color-content-04);
 }

@@ -64,6 +64,50 @@
     return originalSend.apply(this, arguments);
   };
 
+  // 차단된 유저 UID 목록 (content.js와 동기화)
+  let blockedChatUsers = new Set();
+
+  // content.js에서 차단 목록 업데이트 수신
+  window.addEventListener("message", (event) => {
+    if (event.data.type === "CHZZK_UPDATE_CHAT_BLOCK_LIST") {
+      blockedChatUsers = new Set(event.data.payload);
+    }
+  });
+
+  // JSON.parse 후킹: 데이터가 렌더링 되기 전에 가로채서 필터링
+  const originalJSONParse = JSON.parse;
+  JSON.parse = function (text, reviver) {
+    const data = originalJSONParse(text, reviver);
+
+    try {
+      if (data && typeof data === "object") {
+        // 1. 실시간 채팅 (CMD 93101)
+        if (data.cmd === 93101 && Array.isArray(data.bdy)) {
+          // 차단된 유저의 메시지는 배열에서 제외(filter)
+          data.bdy = data.bdy.filter((msg) => !blockedChatUsers.has(msg.uid));
+        }
+        // 2. 과거 채팅 내역 (CMD 15101)
+        else if (
+          data.cmd === 15101 &&
+          data.bdy &&
+          Array.isArray(data.bdy.messageList)
+        ) {
+          data.bdy.messageList = data.bdy.messageList.filter((msg) => {
+            // userId 혹은 profile 문자열 내부의 userIdHash 확인
+            const uid =
+              msg.userId ||
+              (msg.profile ? originalJSONParse(msg.profile).userIdHash : null);
+            return !blockedChatUsers.has(uid);
+          });
+        }
+      }
+    } catch (e) {
+      // 파싱 중 에러 발생 시 무시하고 원본 데이터 반환
+    }
+
+    return data;
+  };
+
   // 3. 클립 메타데이터 API 감지
   const originalFetch = window.fetch;
 

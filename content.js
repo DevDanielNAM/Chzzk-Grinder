@@ -4,6 +4,7 @@ const STORAGE_KEY = "CHZZK_REPLY_BLOCKED_USERS";
 const STORAGE_DETAILS_KEY = "CHZZK_BLOCKED_DETAILS";
 const STORAGE_IMAGES_KEY = "CHZZK_BLOCKED_IMAGES";
 const STORAGE_SETTINGS_KEY = "CHZZK_GRINDER_SETTINGS";
+const STORAGE_CHAT_BLOCK_KEY = "CHZZK_CHAT_BLOCK_LIST";
 
 const CHZZK_API_BASE = "https://comm-api.game.naver.com/nng_main/v1";
 
@@ -12,6 +13,7 @@ let currentMenuTargetHash = null; // '더보기' 메뉴가 열린 대상 유저�
 let pendingTargetId = null; // 포커싱해야 할 댓글 ID
 let lastProfileData = null; // 마지막으로 클릭한 유저의 프로필 데이터
 let currentClipMetadata = null; // 현재 클립의 메타데이터 저장용
+let blockedChatUsersCache = []; // 메모리 캐시
 
 // 사용자 설정 기본값
 let userSettings = {
@@ -71,6 +73,7 @@ function initBlockedUsers() {
       STORAGE_DETAILS_KEY,
       STORAGE_IMAGES_KEY,
       STORAGE_SETTINGS_KEY,
+      STORAGE_CHAT_BLOCK_KEY,
     ],
     (result) => {
       blockedUsersCache = result[STORAGE_KEY] || [];
@@ -81,6 +84,26 @@ function initBlockedUsers() {
       if (result[STORAGE_SETTINGS_KEY]) {
         userSettings = result[STORAGE_SETTINGS_KEY];
       }
+
+      // 채팅 차단 목록 로드
+      const rawChatBlockList = result[STORAGE_CHAT_BLOCK_KEY] || [];
+
+      blockedChatUsersCache = rawChatBlockList.map((item) => {
+        if (typeof item === "string") {
+          return { uid: item, nickname: "알 수 없음" };
+        }
+        return item;
+      });
+
+      // 필터링을 위해 UID만 모아서 전송
+      const uidList = blockedChatUsersCache.map((u) => u.uid);
+      window.postMessage(
+        {
+          type: "CHZZK_UPDATE_CHAT_BLOCK_LIST",
+          payload: uidList,
+        },
+        "*"
+      );
 
       // 로드 완료 플래그 설정
       isDataLoaded = true;
@@ -144,6 +167,51 @@ function toggleBlockUser(hash, metaData = null) {
 
   // C. 우측 하단 버튼 UI 갱신
   updateExportButtonUI();
+}
+
+// 채팅 유저 차단/해제 로직
+function toggleChatBlock(uid, nickname) {
+  if (!uid) return;
+
+  // 이미 차단된 상태인지 확인 (uid로 검색)
+  const existingIndex = blockedChatUsersCache.findIndex(
+    (user) => user.uid === uid
+  );
+
+  if (existingIndex > -1) {
+    // [해제] 배열에서 제거
+    blockedChatUsersCache.splice(existingIndex, 1);
+    showToast(`${nickname}님의 채팅 차단을 해제했습니다.`, "info");
+  } else {
+    // [차단] 배열에 객체 추가
+    blockedChatUsersCache.push({ uid, nickname });
+    showToast(`${nickname}님을 채팅에서 차단했습니다.`, "success");
+  }
+
+  // 1. 스토리지 저장 (객체 배열 전체 저장)
+  chrome.storage.local.set({ [STORAGE_CHAT_BLOCK_KEY]: blockedChatUsersCache });
+
+  // 2. inject.js에 업데이트 알림 (필터링용 UID 배열만 전송)
+  const uidList = blockedChatUsersCache.map((u) => u.uid);
+  window.postMessage(
+    {
+      type: "CHZZK_UPDATE_CHAT_BLOCK_LIST",
+      payload: uidList,
+    },
+    "*"
+  );
+
+  // 3. UI 갱신 (프로필 팝업 버튼 상태 변경 등)
+  // 현재 열려있는 팝업이나 모달이 있다면 갱신
+  const popup = document.querySelector(
+    "[class*='live_chatting_popup_profile_container']"
+  );
+  if (popup) injectChatBlockButton(popup);
+
+  // 만약 관리 모달이 열려있다면 리스트 갱신
+  if (document.getElementById("chzzk-chat-block-modal")) {
+    renderChatBlockList();
+  }
 }
 
 // 설정 저장 헬퍼
@@ -589,7 +657,7 @@ function openBlockListModal() {
       });
 
     if (filteredEntries.length === 0) {
-      listContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#888;">표시할 내역이 없습니다.</div>`;
+      listContainer.innerHTML = `<div class="chzzk-empty-msg">표시할 내역이 없습니다.</div>`;
 
       const countSpan = header.querySelector("#chzzk-block-count");
       if (countSpan) countSpan.innerText = "0";
@@ -743,6 +811,90 @@ function openBlockListModal() {
   // 초기 렌더링
   updateFilterUI();
   renderList();
+}
+
+function openChatBlockModal() {
+  const overlay = document.createElement("div");
+  overlay.id = "chzzk-chat-block-modal";
+  overlay.className = "chzzk-modal-overlay";
+
+  const content = document.createElement("div");
+  content.className = "chzzk-modal-content";
+
+  const header = document.createElement("div");
+  header.className = "chzzk-modal-header";
+  header.innerHTML = `
+    <div class="chzzk-modal-title">
+      채팅 차단 관리
+      <span id="chzzk-chat-block-count">
+          (${blockedChatUsersCache.length}명)
+      </span>
+    </div>
+    <span class="chzzk-modal-close">
+      <svg width="20" height="20" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.79289 7.79289C8.18342 7.40237 8.81658 7.40237 9.20711 7.79289L22.2071 20.7929C22.5976 21.1834 22.5976 21.8166 22.2071 22.2071C21.8166 22.5976 21.1834 22.5976 20.7929 22.2071L7.79289 9.20711C7.40237 8.81658 7.40237 8.18342 7.79289 7.79289Z" fill="currentColor"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M7.79289 22.2071C7.40237 21.8166 7.40237 21.1834 7.79289 20.7929L20.7929 7.79289C21.1834 7.40237 21.8166 7.40237 22.2071 7.79289C22.5976 8.18342 22.5976 8.81658 22.2071 9.20711L9.20711 22.2071C8.81658 22.5976 8.18342 22.5976 7.79289 22.2071Z" fill="currentColor"></path></svg>
+    </span>
+  `;
+  header.querySelector(".chzzk-modal-close").onclick = () => overlay.remove();
+
+  const body = document.createElement("div");
+  body.className = "chzzk-modal-body";
+
+  const listContainer = document.createElement("div");
+  body.appendChild(listContainer);
+
+  renderChatBlockList = () => {
+    listContainer.innerHTML = "";
+
+    const countSpan = header.querySelector("#chzzk-chat-block-count");
+    if (countSpan) {
+      countSpan.innerText = `(${blockedChatUsersCache.length}명)`;
+    }
+
+    if (blockedChatUsersCache.length === 0) {
+      listContainer.innerHTML = `<div class="chzzk-empty-msg">차단된 채팅 유저가 없습니다.</div>`;
+      return;
+    }
+
+    blockedChatUsersCache.forEach((user) => {
+      const item = document.createElement("div");
+      item.className = "chzzk-block-item";
+      item.style.cursor = "default";
+
+      item.innerHTML = `
+        <div class="chzzk-block-info">
+          <div class="chzzk-chat-block-nickname">${user.nickname}</div>
+          <div class="chzzk-chat-block-uid">${user.uid}</div>
+        </div>
+      `;
+
+      const unblockBtn = document.createElement("button");
+      unblockBtn.className = "chzzk-unblock-btn";
+      unblockBtn.innerText = "해제";
+      unblockBtn.onclick = () => {
+        toggleChatBlock(user.uid, user.nickname);
+      };
+
+      item.appendChild(unblockBtn);
+      listContainer.appendChild(item);
+    });
+  };
+
+  const footer = document.createElement("div");
+  footer.className = "chzzk-modal-footer";
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "chzzk-btn chzzk-btn-secondary";
+  closeBtn.innerText = "닫기";
+  closeBtn.onclick = () => overlay.remove();
+  footer.appendChild(closeBtn);
+
+  content.appendChild(header);
+  content.appendChild(body);
+  content.appendChild(footer);
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
+
+  // 초기 렌더링
+  renderChatBlockList();
 }
 
 // PDF 생성 모달 띄우기
@@ -929,7 +1081,7 @@ function openPdfModal() {
     });
 
     if (filteredImages.length === 0) {
-      listContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#888;">표시할 내역이 없습니다.</div>`;
+      listContainer.innerHTML = `<div class="chzzk-empty-msg">표시할 내역이 없습니다.</div>`;
       updateCountUI();
       return;
     }
@@ -1719,6 +1871,107 @@ function injectNativeBlockButton(menuLayer) {
   reportLi.after(blockLi);
 }
 
+function injectChatBlockButton(popupNode) {
+  if (!lastProfileData) return;
+
+  // 버튼들이 모여있는 리스트 컨테이너 찾기
+  const btnList = popupNode.querySelector(
+    "#aside-chatting div[class*='live_chatting_popup_profile_list']"
+  );
+  if (!btnList) return;
+
+  // 이미 주입된 버튼이 있는지 확인
+  if (btnList.querySelector(".chzzk-chat-block-btn")) {
+    // 이미 있다면 텍스트만 업데이트하고 종료
+    const existingBtn = btnList.querySelector(".chzzk-chat-block-btn");
+    const isBlocked = blockedChatUsersCache.includes(
+      lastProfileData.userIdHash
+    );
+    existingBtn.innerHTML = getBlockBtnHtml(isBlocked);
+    return;
+  }
+
+  const uid = lastProfileData.userIdHash;
+  const nickname = lastProfileData.nickname || "???";
+  const isBlocked = blockedChatUsersCache.includes(uid);
+
+  // 버튼 생성
+  const blockBtn = document.createElement("button");
+  blockBtn.type = "button";
+  blockBtn.className =
+    "live_chatting_popup_profile_item__tOguB chzzk-chat-block-btn";
+  blockBtn.innerHTML = getBlockBtnHtml(isBlocked);
+
+  // 클릭 이벤트
+  blockBtn.onclick = () => {
+    toggleChatBlock(uid, nickname);
+  };
+
+  btnList.appendChild(blockBtn);
+}
+
+// 버튼 내부 HTML 생성 헬퍼
+function getBlockBtnHtml(isBlocked) {
+  const text = isBlocked
+    ? "사용자 차단 해제(치즈 그라인더)"
+    : "사용자 차단(치즈 그라인더)";
+
+  return `
+      <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <mask id="mask0_1149_32188" maskUnits="userSpaceOnUse" x="4" y="4" width="17" height="16" style="mask-type: luminance;">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M4 4.5H21L17 11.5L15.41 12C15.41 12 13.5 13.5 13 13.5C13 13.5 12.6667 14 12.5 14C12.3333 14 12 13.5 12 13.5C12 14 13 19.6351 13 19.6351H4V4.5Z" fill="white">
+          </path>
+        </mask>
+        <g mask="url(#mask0_1149_32188)">
+          <path d="M16.05 8.82432C16.05 10.8375 14.4492 12.4486 12.5 12.4486C10.5508 12.4486 8.95 10.8375 8.95 8.82432C8.95 6.81117 10.5508 5.2 12.5 5.2C14.4492 5.2 16.05 6.81117 16.05 8.82432Z" stroke="currentColor" stroke-width="1.4"></path>
+          <path d="M19.2375 19.6352C19.2375 23.4395 16.2096 26.5028 12.5 26.5028C8.79037 26.5028 5.7625 23.4395 5.7625 19.6352C5.7625 15.8309 8.79037 12.7676 12.5 12.7676C16.2096 12.7676 19.2375 15.8309 19.2375 19.6352Z" stroke="currentColor" stroke-width="1.4"></path>
+        </g>
+        <ellipse cx="5.7625" cy="19.9277" rx="0.7" ry="0.508744" fill="currentColor"></ellipse>
+        <ellipse cx="19.24" cy="19.9277" rx="0.7" ry="0.508744" fill="currentColor"></ellipse>
+        <circle cx="17.5" cy="17" r="3.5" stroke="currentColor" stroke-width="1.4"></circle>
+        <path d="M19.5 14.5L15.5 19.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
+      </svg>
+      ${text}
+    `;
+}
+
+function injectChatManagerBtn(layerNode) {
+  // 1. 이미 버튼이 있는지 확인
+  if (layerNode.querySelector(".chzzk-chat-manage-btn")) return;
+
+  // 2. 이 레이어가 '채팅 헤더 더보기'인지 확인
+  if (!layerNode.textContent.includes("채팅")) return;
+
+  // 3. 버튼 래퍼 생성
+  const wrapper = document.createElement("div");
+  wrapper.className = "layer_wrapper__EFbUG chzzk-chat-manage-wrapper";
+
+  // 4. 버튼 생성
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "layer_button__fFPB8 chzzk-chat-manage-btn";
+
+  // 아이콘 (방패 모양) + 텍스트
+  btn.innerHTML = `
+    <span class="layer_contents__QF5mn chzzk-chat-manage-contents">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        <path d="m9 12 2 2 4-4"></path>
+      </svg>
+      <span>치즈 그라인더 차단 관리</span>
+    </span>
+  `;
+
+  btn.onclick = () => {
+    openChatBlockModal();
+  };
+
+  wrapper.appendChild(btn);
+
+  // 5. 메뉴의 마지막에 추가
+  layerNode.appendChild(wrapper);
+}
+
 // 치지직 차단 API 호출 핸들러
 async function handleNativeBlock(userHash) {
   const pathSegments = window.location.pathname.split("/");
@@ -2178,32 +2431,45 @@ function startObserver() {
     // 1. DOM 업데이트 (댓글 감지)
     scheduleUpdateDom();
 
-    // 2. 더보기 메뉴 레이어 감지
+    // 2. 더보기 메뉴 및 팝업 감지
     for (const mutation of mutations) {
       if (mutation.addedNodes.length > 0) {
-        mutation.addedNodes.forEach((node) => {
-          // nodeType이 Element(1)인지, classList가 존재하는지 먼저 확인
-          if (node.nodeType === 1 && node.classList) {
-            const classString = node.classList.toString(); // 문자열로 변환
+        for (const node of mutation.addedNodes) {
+          // Element 노드가 아니면(텍스트 노드 등) 즉시 스킵
+          if (node.nodeType !== 1) continue;
 
-            // A. 댓글 메뉴 감지. 치지직 댓글 메뉴 레이어 클래스 확인 (comment_item_layer)
-            if (classString.includes("comment_item_layer")) {
-              injectNativeBlockButton(node);
-            }
+          // matches()를 사용하여 부분 일치 검사
 
-            // B. 프로필 팝업 감지
-            // live_chatting_popup_profile_container 포함 여부 확인
-            if (classString.includes("live_chatting_popup_profile_container")) {
-              injectUidToProfilePopup(node);
-
-              // 만약 내용이 늦게 뜬다면 팝업 내부를 다시 감시해야 함
-              setTimeout(() => injectUidToProfilePopup(node), 100);
-            }
+          // A. 댓글 메뉴 레이어 감지 (comment_item_layer...)
+          if (node.matches('[class*="comment_item_layer"]')) {
+            injectNativeBlockButton(node);
+            continue; // 처리했으면 다음 루프로
           }
-        });
+
+          // B. 프로필 팝업 감지 (live_chatting_popup_profile_container...)
+          if (
+            node.matches('[class*="live_chatting_popup_profile_container"]')
+          ) {
+            injectUidToProfilePopup(node);
+            injectChatBlockButton(node);
+
+            // 내용이 늦게 렌더링될 경우 대비
+            setTimeout(() => {
+              injectUidToProfilePopup(node);
+              injectChatBlockButton(node);
+            }, 100);
+            continue;
+          }
+
+          // C. 채팅 헤더 메뉴 레이어 감지 (layer_container...)
+          if (node.matches('#aside-chatting div[class*="layer_container"]')) {
+            injectChatManagerBtn(node);
+          }
+        }
       }
     }
   });
+
   observer.observe(document.body, { childList: true, subtree: true });
   scheduleUpdateDom();
 }
